@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  EMPLOYEE
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         UserRole @default(EMPLOYEE)
+  active       Boolean  @default(true)
+  passwordHash String?  @map("password_hash")
+  sentKudos    Kudos[]  @relation("KudosSender")
+  receivedKudos Kudos[] @relation("KudosRecipient")
+
+  @@map("users")
+}
+
+model Kudos {
+  id                String   @id @default(cuid())
+  senderUserId      String   @map("sender_user_id")
+  recipientUserId   String   @map("recipient_user_id")
+  message           String   @db.VarChar(500)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  isVisible         Boolean  @default(true) @map("is_visible")
+  sender            User     @relation("KudosSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+  recipient         User     @relation("KudosRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "kudos_feed_order_idx")
+  @@index([senderUserId, createdAt(sort: Desc)], map: "kudos_sender_created_idx")
+  @@index([recipientUserId, createdAt(sort: Desc)], map: "kudos_recipient_created_idx")
+  @@map("kudos")
+}
